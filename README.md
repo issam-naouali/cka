@@ -1,3 +1,3 @@
-# kubernetes-development
-Kubernetes CKAD course
-# cka
+# kubernetes-administration
+Kubernetes CKA course
+# CKA
