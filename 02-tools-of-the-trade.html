@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+  <title>Guided Exercise: Tools of the Trade</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="strapdown/themes/Dark Mode.min.css">
+  <link rel="stylesheet" href="strapdown/themes/Light Mode.min.css">
+  
+  <xmp theme="superhero" style="display:none;" toc="true">
+
+In this exercice, we will learn about some useful k8s plugins and commands that could make our work much easier.
+
+#Outcomes
+
+You will be able to understand these tools
+- **Bash completion** for kubernetes
+- **krew** : package manager for kubectl plugins.
+- **kubens** : kubectl plugin to ease namespace management
+- **kube-ps1** : kubectl plugin to add Kubernetes context to prompt strings
+- **view-utilization** : kubectl plugin that shows cluster resource utilization
+
+
+#Steps 
+
+1. log into your master node:
+
+  ```
+  vagrant ssh master // if you are not connected to the master node
+  sudo -i
+  ```  
+
+1. Configure bash completion for kubernetes 
+  
+  First, we configure bash completion in the current terminal using
+  ```
+  source <(kubectl completion bash)
+  ```
+  Then, we can add it permanently to our bashrc file  
+  ```
+  echo 'source <(kubectl completion bash)' >>~/.bashrc
+  ```
+  Then, we can make an alias "k" for "kubectl" 
+  ```
+  echo 'alias k=kubectl' >>~/.bashrc
+  echo "alias kpa='kubectl get pods --all-namespaces' " >>~/.bashrc
+  ```
+  This command, will make sure that bash completion work fine for the alias "k" too.
+  ```
+  echo 'complete -F __start_kubectl k' >>~/.bashrc
+  ```
+  Then run this command, to apply those changes in the current terminal
+  ```
+  exec bash
+  ```
+  Now, you can run this command
+  ```
+  kpa
+  ```
+  instead of 
+  ```
+  kubectl get pods --all-namespaces
+  ```
+  Output will be
+  ```
+  NAMESPACE        NAME                                 READY   STATUS             RESTARTS   AGE
+  kube-system      coredns-f9fd979d6-4fndq              1/1     Running            19         31d
+  kube-system      coredns-f9fd979d6-lctqx              1/1     Running            19         31d
+  kube-system      etcd-k8s-master                      1/1     Running            20         31d
+  kube-system      kube-apiserver-k8s-master            1/1     Running            24         31d
+  kube-system      kube-controller-manager-k8s-master   1/1     Running            121        31d
+  kube-system      kube-proxy-7dhlf                     1/1     Running            4          18d
+  kube-system      kube-proxy-m2xvf                     1/1     Running            19         31d
+  kube-system      kube-proxy-rnrfb                     1/1     Running            13         31d
+  kube-system      kube-scheduler-k8s-master            1/1     Running            114        31d
+  kube-system      weave-net-hbpkt                      2/2     Running            53         31d
+  kube-system      weave-net-hmbgq                      2/2     Running            12         18d
+  kube-system      weave-net-htmxv                      2/2     Running            36         31d
+  ```
+
+2. Configuring krew 
+ 
+  Krew is the package manager for kubectl plugins.
+  
+  Let's install it on our kubernetes master
+  ```
+  (
+    set -x; cd "$(mktemp -d)" &&
+    curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/download/v0.3.2/krew.{tar.gz,yaml}" &&
+    tar zxvf krew.tar.gz &&
+    ./krew-"$(uname | tr '[:upper:]' '[:lower:]')_amd64" install \
+      --manifest=krew.yaml --archive=krew.tar.gz
+  )
+  ```
+  Output should be something like this
+  ```
+  ++ mktemp -d
+  + cd /tmp/tmp.2Y9c6g9mTN
+  + curl -fsSLO 'https://github.com/kubernetes-sigs/krew/releases/download/v0.3.2/krew.{tar.gz,yaml}'
+  + tar zxvf krew.tar.gz
+  ./krew-darwin_amd64
+  ./krew-linux_amd64
+  ./krew-linux_arm
+  ./krew-windows_amd64.exe
+  ++ uname
+  ++ tr '[:upper:]' '[:lower:]'
+  + ./krew-linux_amd64 install --manifest=krew.yaml --archive=krew.tar.gz
+  Installing plugin: krew
+  CAVEATS:
+  \
+   |  krew is now installed! To start using kubectl plugins, you need to add
+   |  krew's installation directory to your PATH:
+   |  
+   |    * macOS/Linux:
+   |      - Add the following to your ~/.bashrc or ~/.zshrc:
+   |          export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+   |      - Restart your shell.
+   |  
+   |    * Windows: Add %USERPROFILE%\.krew\bin to your PATH environment variable
+   |  
+   |  To list krew commands and to get help, run:
+   |    $ kubectl krew
+   |  For a full list of available plugins, run:
+   |    $ kubectl krew search
+   |  
+   |  You can find documentation at https://sigs.k8s.io/krew.
+  /
+  Installed plugin: krew
+  WARNING: You installed a plugin from the krew-index plugin repository.
+     These plugins are not audited for security by the Krew maintainers.
+     Run them at your own risk.
+  ```
+  Update your .bashrc to make krew available in the path variable.
+  ```
+  echo 'export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"' >>~/.bashrc
+  ```
+  Execute this command to apply these changes in the runtime environment
+  ```
+  exec bash
+  ```
+  Test our configuration:
+  ```
+  kubectl krew update
+  ```
+  Output
+  ```
+  Updated the local copy of plugin index.
+  ```
+
+3. Installing krew plugins
+
+   2. **kubens**
+    
+    kubens is a utility to switch between Kubernetes namespaces.
+    ```
+    kubectl krew install ns
+    ```
+    ```
+    Updated the local copy of plugin index.
+    Installing plugin: ns
+    CAVEATS:
+    \
+     |  If fzf is installed on your machine, you can interactively choose
+     |  between the entries using the arrow keys, or by fuzzy searching
+     |  as you type.
+    /
+    Installed plugin: ns
+    WARNING: You installed a plugin from the krew-index plugin repository.
+     These plugins are not audited for security by the Krew maintainers.
+     Run them at your own risk.
+    ```
+    ```
+    k ns
+    ```
+    ```
+    default
+    kube-node-lease
+    kube-public
+    kube-system
+    ```
+  5. **kube-ps1**
+    
+    A script that lets you add the current Kubernetes context and namespace configured on kubectl to your Bash/Zsh prompt strings (i.e. the $PS1).
+    
+    Let's install it from source
+    ```
+    cd; git clone https://github.com/jonmosco/kube-ps1
+    ```
+    First, we configure bash completion in the current terminal using
+    ```
+    source ~/kube-ps1/kube-ps1.sh 
+    ```
+    Then, we can add it permanently to our bashrc file  
+    ```
+    echo 'source ~/kube-ps1/kube-ps1.sh ' >>~/.bashrc
+    echo "PS1='[\u@\h \W $(kube_ps1)]\$' " >>~/.bashrc
+    ```
+    Let's switch the namespace to check how ps1 work
+    ```
+    k ns kube-system
+    ```
+    Output should be something like this
+    ```
+    [root@k8s-master ~ (⎈ |kubernetes-admin@kubernetes:default)]# k ns kube-system
+    Context "kubernetes-admin@kubernetes" modified.
+    Active namespace is "kube-system".
+    ```
+    ```
+    exec bash
+    ```
+    ```
+    [root@k8s-master ~ (⎈ |kubernetes-admin@kubernetes:kube-system)]# 
+    ```
+
+  6. **view-utilization**
+    
+    view-utilization kubectl plugin that shows cluster resource utilization. 
+    ```
+    kubectl krew install view-utilization
+    ```
+    ```
+    Installing plugin: view-utilization
+    CAVEATS:
+    \
+     |  This plugin needs the following programs:
+     |  * bash
+     |  * awk (gawk,mawk,awk)
+    /
+    Installed plugin: view-utilization
+    WARNING: You installed a plugin from the krew-index plugin repository.
+       These plugins are not audited for security by the Krew maintainers.
+       Run them at your own risk.
+    ```
+    ```
+    k view-utilization
+    ```
+    ```
+    Resource   Requests  %Requests     Limits  %Limits  Allocatable  Schedulable        Free
+    CPU            1050         17          0        0         6006         4956        4956
+    Memory    775946240         10  356515840        4   7513014272   6737068032  6737068032
+    ```
+  7. Update your alias list
+    
+    ```
+    echo "alias ktx='kubectl ctx'" >>~/.bashrc
+    echo "alias kns='kubectl ns'" >>~/.bashrc
+    echo "alias kvu='kubectl view-utilization -h'" >>~/.bashrc
+    ```
+
+  </xmp>
+  <script src="strapdown/strapdown.min.js"></script>
+</html>
+<!--
+Local Variables:
+mode: markdown
+End:
+->

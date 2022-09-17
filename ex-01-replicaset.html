@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <title>Guided Exercise: Students Project - ReplicaSet</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="strapdown/themes/Dark Mode.min.css">
+  <link rel="stylesheet" href="strapdown/themes/Light Mode.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <xmp theme="superhero" style="display:none;" toc="true">
+
+
+In this guided exercise, you will learn how to create a simple microservice app using a NodeJS and a MySQL containers.
+#Outcomes
+
+You should be able to create a basic Microservice Architecture.
+#Steps
+1. Your instructor will provide you all the manifest files needed to build all microservices.
+2. NodeJS Microservice 
+   - Replace the pod by the ReplicaSet controller
+     - Create a new manifest file named:  `nodejs-replicaset.yml`
+       - ReplicaSet Name: `nodejs-replicaset` 
+       - Number of replicas = `1`
+       - Labels/Selectors = `nodejs-instance` 
+     - Apply the manifest file and check resources creation
+3. Add more replicas to your nodeJS microservice 
+   - Number of replicas = `3` 
+4. Test your application  
+
+  </xmp>
+  <script src="strapdown/strapdown.min.js"></script>
+</html>
+<!--
+Local Variables:
+mode: markdown
+End:
+->

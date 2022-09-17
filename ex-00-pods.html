@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+  <title>Guided Exercise: Students Project - Pod</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="strapdown/themes/Dark Mode.min.css">
+  <link rel="stylesheet" href="strapdown/themes/Light Mode.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <xmp theme="superhero" style="display:none;" toc="true">
+
+
+In this guided exercise, you will learn how to create a simple microservice app using a NodeJS and a MySQL containers.
+#Outcomes
+
+You should be able to create a basic Microservice Architecture.
+#Steps
+1. Your instructor will provide you all the manifest files needed to build all microservices.
+2. Prepare microservices Images 
+  - Build Mysql instance using a Dockerfile
+    - Image Name:  `mysql-instance`
+    - Tag: `v1`
+    - Push the `mysql-instance:v1` image to you dockerhub account 
+      - Tag the Image `docker.io/your-account/mysql-instance:v1` 
+      - Push 
+  - Build NodeJS instance using a Dockerfile
+    - Image Name:  `nodejs-instance`
+    - Tag: `v1`
+    - Push the `nodejs-instance:v1` image to you dockerhub account 
+      - Tag the Image  `docker.io/your-account/nodejs-instance:v1` 
+      - Push 
+3. Create two namespaces
+  - `mysql-microservice` 
+  - `nodejs-microservice`
+4. Create Pods 
+   - Use Manifest files provided by your instructor
+   - Before you apply any yml file, make sure that you are using the right IP Address 
+5. Test your Applications
+   - Use the tester-pod 
+
+  </xmp>
+  <script src="strapdown/strapdown.min.js"></script>
+</html>
+<!--
+Local Variables:
+mode: markdown
+End:
+->

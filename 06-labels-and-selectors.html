@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html>
+   
+  <title>Guided Exercise: Labels and selectors</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="strapdown/themes/Dark Mode.min.css">
+  <link rel="stylesheet" href="strapdown/themes/Light Mode.min.css">
+  
+  <xmp theme="superhero" style="display:none;" toc="true">
+
+
+In this exercise, you will learn how to use labels and selectors in your kubernetes objects.
+
+#Outcomes
+
+You should be able to:
+- Assign labels to your pods
+- Set the right selectors
+- Clean up.
+
+#Steps
+
+1. Create a workspace for Kubernetes
+   
+   Open a terminal on workstation (Applications > Utilities > Terminal) and run the following commands:    
+
+   Switch to root user:
+   ```
+   vagrant ssh master // if you are not connected to the master node
+   sudo -i
+   ```
+   ```
+   mkdir ~/labels-lab
+   cd ~/labels-lab
+   ```
+
+2. Create a namespace for our lab
+
+   Namespaces are used to organize our work and keep track of every kubernetes object we create.
+   That's why we will create a namespace for this lab
+   ```
+   kubectl create namespace labels-lab
+   ```
+   Now to check that we successfully created it, run this command
+   ```
+   kubectl get namespaces
+   ```
+   Output should be like this:
+   ```
+   NAME              STATUS   AGE
+   default           Active   3d9h
+   kube-node-lease   Active   3d9h
+   kube-public       Active   3d9h
+   kube-system       Active   3d9h
+   labels-lab        Active   6s
+   ```
+
+2. Creating a labeled deployment 
+
+  Labels are key/value pairs that are attached to objects, such as pods. Labels are intended to be used to specify identifying attributes of objects that are meaningful and relevant to users, but do not directly imply semantics to the core system.
+
+  Let's see them in action. create an empty file:
+  ```
+  vi labels-deploy.yaml
+  ```
+  Press "i" to enter vi insert mode, then paste this:
+  ```
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: labels-deployment
+    namespace: labels-lab
+  spec:
+    replicas: 2
+    selector:
+      matchLabels:
+        app: frontend
+        version: "1"
+    template:
+      metadata:
+        labels:
+          app: frontend
+          version: "1"
+      spec:
+        containers:
+        - name: frontend-container
+          image: dockertrainings2020/hello_world
+          ports:
+          - containerPort: 80
+  ```
+  Now, we just need to create it using
+  ```
+  kubectl apply -f labels-deploy.yaml
+  ```
+  ```
+  deployment.apps/labels-deployment created
+  ```
+  In order to check our created deployment, run:
+  ```
+  kubectl get deployments -n labels-lab
+  ```
+  Output should be:
+  ```
+  NAME                READY   UP-TO-DATE   AVAILABLE   AGE
+  labels-deployment   2/2     2            2           103s
+  ```
+  Or you can check the pods in it:
+  ```
+  kubectl get pods -n labels-lab
+  ```
+  Output:
+  ```
+  NAME                                 READY   STATUS    RESTARTS   AGE
+  labels-deployment-7877587d8f-jftbz   1/1     Running   0          14s
+  labels-deployment-7877587d8f-tdv8k   1/1     Running   0          14s
+  ```
+  Now, let's create a different deployment as a version 2 of this app:
+  ```
+  vi labels-deploy-v2.yaml
+  ```
+  Press "i" to enter vi insert mode, then paste this:
+  ```
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: labels-deployment-v2
+    namespace: labels-lab
+  spec:
+    replicas: 2
+    selector:
+      matchLabels:
+        app: frontend
+        version: "2"
+    template:
+      metadata:
+        labels:
+          app: frontend
+          version: "2"
+      spec:
+        containers:
+        - name: frontend-container
+          image: dockertrainings2020/hello_world
+          ports:
+          - containerPort: 80
+  ```
+  Now, we just need to create it using
+  ```
+  kubectl apply -f labels-deploy-v2.yaml
+  ```
+  ```
+  deployment.apps/labels-deployment-v2 created
+  ```
+  In order to check our created deployment, run:
+  ```
+  kubectl get deployments -n labels-lab
+  ```
+  Output should be:
+  ```
+  NAME                   READY   UP-TO-DATE   AVAILABLE   AGE
+  labels-deployment      2/2     2            2           12m
+  labels-deployment-v2   2/2     2            2           4m13s
+  ```
+  Or you can check the pods in it:
+  ```
+  kubectl get pods -n labels-lab
+  ```
+  Output:
+  ```
+  NAME                                   READY   STATUS    RESTARTS   AGE
+  labels-deployment-7877587d8f-jftbz     1/1     Running   0          12m
+  labels-deployment-7877587d8f-tdv8k     1/1     Running   0          12m
+  labels-deployment-v2-ddb7d54dd-m76bc   1/1     Running   0          3m45s
+  labels-deployment-v2-ddb7d54dd-xdtnl   1/1     Running   0          3m45s
+  ```
+
+  Now, let's add the labels to this output:
+  ```
+  kubectl get pods -n labels-lab -L app,version
+  ```
+  Output:
+  ```
+  NAME                                   READY   STATUS    RESTARTS   AGE     APP        VERSION
+  labels-deployment-7877587d8f-jftbz     1/1     Running   0          13m     frontend   1
+  labels-deployment-7877587d8f-tdv8k     1/1     Running   0          13m     frontend   1
+  labels-deployment-v2-ddb7d54dd-m76bc   1/1     Running   0          5m21s   frontend   2
+  labels-deployment-v2-ddb7d54dd-xdtnl   1/1     Running   0          5m21s   frontend   2
+  ```
+  If we want to display only the version 1 pods, we can run:
+  ```
+  kubectl get pods -n labels-lab -L app,version --selector "version=1"
+  ```
+  ```
+  NAME                                 READY   STATUS    RESTARTS   AGE   APP        VERSION
+  labels-deployment-7877587d8f-jftbz   1/1     Running   0          14m   frontend   1
+  labels-deployment-7877587d8f-tdv8k   1/1     Running   0          14m   frontend   1
+  ```
+
+  Let's now create the last deployment:
+  ```
+  vi labels-deploy-v3.yaml
+  ```
+  Press "i" to enter vi insert mode, then paste this:
+  ```
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: labels-deployment-v3
+    namespace: labels-lab
+  spec:
+    replicas: 2
+    selector:
+      matchLabels:
+        app: backend
+        version: "3"
+    template:
+      metadata:
+        labels:
+          app: backend
+          version: "3"
+      spec:
+        containers:
+        - name: frontend-container
+          image: dockertrainings2020/hello_world
+          ports:
+          - containerPort: 80
+  ```
+  Now, we just need to create it using
+  ```
+  kubectl apply -f labels-deploy-v3.yaml
+  ```
+  ```
+  deployment.apps/labels-deployment-v3 created
+  ```
+  In order to check our created deployment, run:
+  ```
+  kubectl get deployments -n labels-lab
+  ```
+  Output should be:
+  ```
+  NAME                   READY   UP-TO-DATE   AVAILABLE   AGE
+  labels-deployment      2/2     2            2           16m
+  labels-deployment-v2   2/2     2            2           8m1s
+  labels-deployment-v3   2/2     2            2           13s
+  ```
+  Or you can check the pods in it:
+  ```
+  kubectl get pods -n labels-lab -L app,version
+  ```
+  Output:
+  ```
+  NAME                                    READY   STATUS    RESTARTS   AGE     APP        VERSION
+  labels-deployment-7877587d8f-jftbz      1/1     Running   0          16m     frontend   1
+  labels-deployment-7877587d8f-tdv8k      1/1     Running   0          16m     frontend   1
+  labels-deployment-v2-ddb7d54dd-m76bc    1/1     Running   0          8m18s   frontend   2
+  labels-deployment-v2-ddb7d54dd-xdtnl    1/1     Running   0          8m18s   frontend   2
+  labels-deployment-v3-758c7cb895-cc7xn   1/1     Running   0          30s     backend    3
+  labels-deployment-v3-758c7cb895-rp5hs   1/1     Running   0          30s     backend    3
+  ```
+  If we want to select the pods that are not a "backend" pod, we can run:
+  ```
+  kubectl get pods -n labels-lab -L app,version --selector "app!=backend"
+  ```
+  ```
+  NAME                                   READY   STATUS    RESTARTS   AGE   APP        VERSION
+  labels-deployment-7877587d8f-jftbz     1/1     Running   0          21m   frontend   1
+  labels-deployment-7877587d8f-tdv8k     1/1     Running   0          21m   frontend   1
+  labels-deployment-v2-ddb7d54dd-m76bc   1/1     Running   0          12m   frontend   2
+  labels-deployment-v2-ddb7d54dd-xdtnl   1/1     Running   0          12m   frontend   2
+  ```
+  We can select the pods that have a version 1 and 3:
+  ```
+  kubectl get pods -n labels-lab -L app,version --selector "version in (1,3)"
+  ```
+  ```
+  NAME                                   READY   STATUS    RESTARTS   AGE   APP        VERSION
+  labels-deployment-7877587d8f-jftbz     1/1     Running   0          29m   frontend   1
+  labels-deployment-7877587d8f-tdv8k     1/1     Running   0          29m   frontend   1
+  labels-deployment-v3-98f66487f-82hd8   1/1     Running   0          11m   backend    3
+  labels-deployment-v3-98f66487f-rcvdk   1/1     Running   0          11m   backend    3
+  ```
+  Finally, we will select the pods that have a version-2 and app=frontend:
+  ```
+  kubectl get pods -n labels-lab -L app,version --selector "version=2,app=frontend"
+  ```
+  ```
+  NAME                                   READY   STATUS    RESTARTS   AGE   APP        VERSION
+  labels-deployment-v2-ddb7d54dd-m76bc   1/1     Running   0          22m   frontend   2
+  labels-deployment-v2-ddb7d54dd-xdtnl   1/1     Running   0          22m   frontend   2
+  ```
+  There are also other selectors like:
+    - notin (identifier1, identifier2)
+    - exists(key identifier)
+  
+5. Clean up
+
+  In order to keep our cluster clean and do not waste ressources, we'll delete every k8s object created in this lab.
+  We can do this by using this command.
+
+   ```
+   kubectl delete all --all -n labels-lab
+   ```
+   ```
+   pod "labels-deployment-7877587d8f-jftbz" deleted
+   pod "labels-deployment-7877587d8f-tdv8k" deleted
+   pod "labels-deployment-v2-ddb7d54dd-m76bc" deleted
+   pod "labels-deployment-v2-ddb7d54dd-xdtnl" deleted
+   pod "labels-deployment-v3-98f66487f-82hd8" deleted
+   pod "labels-deployment-v3-98f66487f-rcvdk" deleted
+   deployment.apps "labels-deployment" deleted
+   deployment.apps "labels-deployment-v2" deleted
+   deployment.apps "labels-deployment-v3" deleted
+   replicaset.apps "labels-deployment-7877587d8f" deleted
+   replicaset.apps "labels-deployment-v2-ddb7d54dd" deleted
+   replicaset.apps "labels-deployment-v3-98f66487f" deleted
+   ```
+   Then delete the namespace
+   ```
+   kubectl delete namespace labels-lab
+   ```
+   Finally, delete the working directory:
+   ```
+   sudo rm -rf ~/labels-lab
+   ```
+  </xmp>
+  <!-- <script src="http://cdn.ztx.io/strapdown/strapdown.min.js"></script> -->
+  <script src="strapdown/strapdown.min.js"></script>
+</html>
+<!--
+Local Variables:
+mode: markdown
+End:
+->

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+   
+  <title>Guided Exercise: Installing All in one Kubernetes cluster using Kind </title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="strapdown/themes/Dark Mode.min.css">
+  <link rel="stylesheet" href="strapdown/themes/Light Mode.min.css">
+  <link rel="stylesheet" href="css/style.css">
+
+  <xmp theme="superhero" style="display:none;" toc="true">
+
+
+   In this exercise, you will learn how to set up all in one kubernetes cluster using Kind.
+  
+   #Outcomes
+   
+   You should be able to setup your kubernetes cluster.
+   
+   #Steps
+   
+   
+1. Creating the environment
+         
+   - Open a terminal on workstation (Applications > Utilities > Terminal) and run the following commands:    
+   - Download the kind package.
+
+   ```
+   curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.15.0/kind-linux-amd64
+   chmod +x ./kind
+   sudo mv ./kind /usr/bin/kind
+   exec bash 
+   ```      
+2. Creating a kubernetes cluster
+
+   - Cluster name = kubernetes-training 
+
+   ```
+   kind create cluster --name kubernetes-training 
+   ```  
+   - Please wait for it, this might take a few minutes !   
+
+   - Test cluster creation
+
+   ```
+   kind get clusters
+   ``` 
+   output:
+   ``` 
+   kubernetes-training 
+   ``` 
+3. Connect to the cluster:
+ 
+   1. Download kubectl binary file:
+
+   ```
+   curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+   chmod +x kubectl
+   mv ./kubectl /usr/bin/kubectl   
+   ``` 
+   2. Test kubectl command  
+
+   ``` 
+   kubect get nodes
+   kubect get pods -A
+   ```  
+   
+	And now, you have a kubernetes cluster up and running !
+    
+      
+
+  </xmp>
+  <script src="strapdown/strapdown.min.js"></script>
+</html>
+<!--
+Local Variables:
+mode: markdown
+End:
+->

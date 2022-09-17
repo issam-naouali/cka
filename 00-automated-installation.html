@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+   
+  <title>Guided Exercise: Installing a Kubernetes cluster using Ansible </title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="strapdown/themes/Dark Mode.min.css">
+  <link rel="stylesheet" href="strapdown/themes/Light Mode.min.css">
+  <link rel="stylesheet" href="css/style.css">
+
+  <xmp theme="superhero" style="display:none;" toc="true">
+
+
+   In this exercise, you will learn how to set up a multi-node kubernetes cluster.
+
+   - Our environment contains:
+     - One master node
+     - Two worker nodes
+   
+   - Github Repositorty: 
+     - https://github.com/raed-sebti/vagrant-files 
+   
+   #Outcomes
+   
+   You should be able to setup your own multi-node Kubernetes cluster.
+   
+   #Steps
+   
+   
+1. Creating the environment
+         
+   - Open a terminal on workstation (Applications > Utilities > Terminal) and run the following commands:    
+   
+   ```
+   cd ~
+   git clone https://github.com/raed-sebti/vagrant-files 
+   mv vagrant-files kubernetes-training
+   cd ~/kubernetes-training
+   ```
+   ```
+   vagrant up
+   ```   
+   - Please wait for it, this might take a few minutes (about 7 min)! 
+      
+2. Installing Kubernetes
+
+   - Run `vagrang ssh` command (will get you to the ansible control VM) 
+
+   ```
+   vagrant ssh
+   ```    
+
+3. Run ansible playbooks  
+   
+   ```
+   cd src/ansible
+   ansible-playbook apt.yml base.yml no-swap.yml master.yml node.yml control.yml
+   ```
+4. Exit from ansible control node 
+   ```
+   exit
+   ```      
+      
+3. Check your kubernetes cluster
+
+   - Now, log into your master node and run this command:
+
+   ```
+   vagrant ssh master
+   ```    
+   ```  
+   kubectl get nodes
+   ```  
+   - You should see this as output:
+
+   ```    
+        NAME      STATUS   ROLES    AGE   VERSION
+        master    Ready    master   3m   v1.19.3
+        node1     Ready    <none>   2m   v1.19.3
+        node2     Ready    <none>   2m   v1.19.3
+   ```  
+   - Note: If the status is not ready for one of your worker nodes, you might need to wait for a while and then try again. If nothing changed, recheck your configuration.
+   - You can run this command too, to check the version of your server/client:
+
+   ```  
+      kubectl version
+   ```  
+   ```  
+      Client Version: version.Info{Major:"1", Minor:"19", GitVersion:"v1.19.3", GitCommit:"f5743093fd1c663cb0cbc89748f730662345d44d", GitTreeState:"clean", BuildDate:"2020-09-16T13:41:02Z", GoVersion:"go1.15", Compiler:"gc", Platform:"linux/amd64"}
+      Server Version: version.Info{Major:"1", Minor:"19", GitVersion:"v1.19.3", GitCommit:"f5743093fd1c663cb0cbc89748f730662345d44d", GitTreeState:"clean", BuildDate:"2020-09-16T13:32:58Z", GoVersion:"go1.15", Compiler:"gc", Platform:"linux/amd64"}
+      As we can see master and worker nodes are in ready status.
+      This concludes that kubernetes has been installed successfully and also we have successfully joined two worker nodes.  
+   ```  
+	  
+	And now, you have a kubernetes cluster up and running !
+    
+      
+
+  </xmp>
+  <script src="strapdown/strapdown.min.js"></script>
+</html>
+<!--
+Local Variables:
+mode: markdown
+End:
+->

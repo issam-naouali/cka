@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+   
+  <title>Guided Exercise: Getting started with Kubernetes</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="strapdown/themes/Dark Mode.min.css">
+  <link rel="stylesheet" href="strapdown/themes/Light Mode.min.css">
+  <link rel="stylesheet" href="css/style.css">
+
+  <xmp theme="superhero" style="display:none;" toc="true">
+
+
+In this exercise, you will learn the very first basics of kubernetes.
+
+#Outcomes
+
+You should be able to:
+- Create namespaces
+- Create simple pods
+- Understand yaml files
+
+#Steps
+
+
+1. Create a workspace for Kubernetes
+   
+   Open a terminal on workstation (Applications > Utilities > Terminal) and run the following commands:    
+   Switch to root user:
+   ```
+   vagrant ssh master // if you are not connected to the master node
+   sudo -i
+   ```
+   ```
+   mkdir ~/playground-lab
+   cd ~/playground-lab
+   ```
+
+2. Create a Kubernetes Namespace
+   
+   Namespaces are used to organize our work and keep track of every kubernetes object we create.
+   That's why we will create a namespace for this lab. There are two ways of creating k8s objects:
+      
+   - <span class="important-header">Declarative form:</span> 
+
+      Let's start with creating an empty file:
+      ```
+      vi namespace.yaml
+      ```
+      Press "i" to enter vi insert mode, then paste this:
+      ```
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: playground-lab
+      ```
+      Then, run this command in order to create the namespace:
+      ```
+      kubectl apply -f namespace.yaml
+      ```
+      Output:
+      ```
+      namespace/playground-lab created
+      ```
+      Now to check that we successfully created it, run this command
+      ```
+      kubectl get namespaces
+      ```
+      ```
+      NAME              STATUS   AGE
+      default           Active   13d
+      kube-node-lease   Active   13d
+      kube-public       Active   13d
+      kube-system       Active   13d
+      playground-lab    Active   38s
+      ```
+      Now, let's delete it:
+      ```
+      kubectl delete -f namespace.yaml
+      ```
+      ```
+      namespace "playground-lab" deleted
+      ```
+   - <span class="important-header">Imperative form:</span> 
+
+      Then you can simply run this command instead of the YAML definition:
+      ```
+      kubectl create namespace playground-lab
+      ```
+      ```
+      namespace/playground-lab created
+      ```
+      Now to check that we successfully created it, run this command
+      ```
+      kubectl get namespaces
+      ```
+      ```
+      NAME              STATUS   AGE
+      default           Active   13d
+      kube-node-lease   Active   13d
+      kube-public       Active   13d
+      kube-system       Active   13d
+      playground-lab    Active   18s
+      ```
+3. Create your first mult-containers pod
+  
+   Create an empty file:
+   ```
+   vi multi-containers-pod.yaml
+   ```
+   Press "i" to enter vi insert mode, then paste this:
+   ```
+   apiVersion: v1
+   kind: Pod
+   metadata:
+     name: multi-containers-pod
+     namespace: playground-lab
+     labels:
+       app: first-app
+   spec:
+     containers:
+     - name: first-container-nginx
+       image: nginx
+     - name: second-container-busybox
+       image: radial/busyboxplus:curl
+       command: ['sh', '-c', 'while true; do curl localhost ; sleep 60; done;']         
+   ```
+   Now, run this command, we'll explain in a bit every thing in this YAMl file.
+   ```
+   kubectl create -f multi-containers-pod.yaml
+   ```
+   ```
+   pod/multi-containers-pod created
+   ```
+   Now, let's check that our pod is running:
+   ```
+   kubectl get pods -n playground-lab
+   ```
+   Output should be:
+   ```
+   NAME                  READY   STATUS    RESTARTS   AGE
+   multi-containers-pod   2/2     Running   0          8s
+   ```
+   See the logs:
+   - Use `-c` option to specify the conatiner name  
+   - Optionally: add -f option for real time follow mode
+
+   ```
+   kubectl logs multi-containers-pod -c second-container-busybox -n playground-lab -f
+   ```
+   Output should be:
+   ```
+   Welcome to nginx
+   ```
+   We can have more details about this pod using the command:
+   ```
+   kubectl describe pod multi-containers-pod -n playground-lab
+   ```
+   Output should be:
+   ```
+    Name:         multi-containers-pod
+    Namespace:    playground-lab
+    Priority:     0
+    Node:         ip-192-168-22-253.ec2.internal/192.168.22.253
+    Start Time:   Mon, 08 Nov 2021 10:49:06 +0100
+    Labels:       app=first-app
+    Annotations:  kubernetes.io/psp: eks.privileged
+    Status:       Running
+    IP:           192.168.20.241
+    IPs:
+      IP:  192.168.20.241
+    Containers:
+      first-container-nginx:
+        Container ID:   docker://13e686f9b64bb3dc911d4044e0e81b88cec226ea504462e6a1f2e4ce0506fdc3
+        Image:          nginx
+        Image ID:       docker-pullable://nginx@sha256:644a70516a26004c97d0d85c7fe1d0c3a67ea8ab7ddf4aff193d9f301670cf36
+        Port:           <none>
+        Host Port:      <none>
+        State:          Running
+          Started:      Mon, 08 Nov 2021 10:49:07 +0100
+        Ready:          True
+        Restart Count:  0
+        Environment:    <none>
+        Mounts:
+          /var/run/secrets/kubernetes.io/serviceaccount from default-token-4znbv (ro)
+      second-container-busybox:
+        Container ID:  docker://6fbdfb288e83ba5fcae7d9a88ad5e308062403dd3c3944bd77ba64653b07d0ad
+        Image:         busybox
+        Image ID:      docker-pullable://busybox@sha256:15e927f78df2cc772b70713543d6b651e3cd8370abf86b2ea4644a9fba21107f
+        Port:          <none>
+        Host Port:     <none>
+        Command:
+          sh
+          -c
+          while true; do curl localhost ; sleep 30; done;
+        State:          Running
+          Started:      Mon, 08 Nov 2021 10:49:08 +0100
+        Ready:          True
+        Restart Count:  0
+        Environment:    <none>
+        Mounts:
+          /var/run/secrets/kubernetes.io/serviceaccount from default-token-4znbv (ro)
+    Conditions:
+      Type              Status
+      Initialized       True 
+      Ready             True 
+      ContainersReady   True 
+      PodScheduled      True 
+    Volumes:
+      default-token-4znbv:
+        Type:        Secret (a volume populated by a Secret)
+        SecretName:  default-token-4znbv
+        Optional:    false
+    QoS Class:       BestEffort
+    Node-Selectors:  <none>
+    Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                    node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+    Events:
+      Type    Reason     Age    From               Message
+      ----    ------     ----   ----               -------
+      Normal  Scheduled  3m30s  default-scheduler  Successfully assigned playground-lab/multi-containers-pod to ip-192-168-22-253.ec2.internal
+      Normal  Pulling    3m29s  kubelet            Pulling image "nginx"
+      Normal  Pulled     3m29s  kubelet            Successfully pulled image "nginx" in 102.546453ms
+      Normal  Created    3m29s  kubelet            Created container first-container-nginx
+      Normal  Started    3m29s  kubelet            Started container first-container-nginx
+      Normal  Pulling    3m29s  kubelet            Pulling image "busybox"
+      Normal  Pulled     3m28s  kubelet            Successfully pulled image "busybox" in 99.20008ms
+      Normal  Created    3m28s  kubelet            Created container second-container-busybox
+      Normal  Started    3m28s  kubelet            Started container second-container-busybox
+   ```
+   In the events section, you can check why is your pod at its current state and what happened since it was created.
+
+4. Understanding Yaml files
+   
+   YAML is a human-readable data-serialization language. It is commonly used for configuration files and in applications where data is being stored or transmitted.
+
+   Which means YAML files are not only used in kubernetes, but we can find them elsewhere and it's an important skill to learn how to deal with them.
+
+   Here some rules that you should respect while typing YAML:
+   - <b>YAML is case sensitive.</b>
+   - <b>The files should have .yaml as the extension.</b>
+   - <b>YAML does not allow the use of tabs while creating YAML files; spaces are allowed instead.</b>
+   - <b>Children of the same parent, must be indented with the same number of spaces (usually 2 spaces).</b>
+
+   Now, let's take a closer look on the previous yaml file:
+   ```
+   apiVersion: v1
+   kind: Pod
+   metadata:
+     name: first-pod
+     labels:
+       app: first-app
+   spec:
+     containers:
+     - name: myapp-container
+       image: busybox
+       command: ['echo']
+       args: ['Hello World!']
+   ```
+   Here is the explanation of every term in the yaml file:
+
+   - <span class="important-note">apiVersion:</span> Kubernetes API version, which indicates the path to ensure the API presents a clear, consistent view of system resources and behaviour.
+   - <span class="important-note">kind:</span> Represents the kind of object you want to create. This is a required field. Examples are: pod, deployment, replicaset ..
+   - <span class="important-note">metadata:</span> Data that helps uniquely identify the object, including a name, UID, and optional namespace and labels.
+   - <span class="important-note">spec:</span> Describes your desired state for the object and the characteristics you want the object to have. The format of the object spec is different for every object.
+   - <span class="important-note">containers:</span> This is a list of all the containers that you want to have on your pod. 
+5. Clean up (Optionally)
+
+   Now, let's delete everyting we created. We can simply delete the namespace itslef, this will delete all the objects created in this namespace.
+   ```
+   kubectl delete namespace playground-lab
+   ```
+   ```
+   namespace "playground-lab" deleted
+   ```
+   Now, let's check the namespaces lists:
+   ```
+   kubectl get namespaces
+   ```
+   Output:
+   ```
+   NAME              STATUS   AGE
+   default           Active   13d
+   kube-node-lease   Active   13d
+   kube-public       Active   13d
+   kube-system       Active   13d
+   ```
+
+
+  </xmp>
+  <!-- <script src="http://cdn.ztx.io/strapdown/strapdown.min.js"></script> -->
+  <script src="strapdown/strapdown.min.js"></script>
+</html>
+<!--
+Local Variables:
+mode: markdown
+End:
+->

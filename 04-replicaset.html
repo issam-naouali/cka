@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+   
+  <title>Guided Exercise: Kubernetes core concepts - ReplicaSet </title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="strapdown/themes/Dark Mode.min.css">
+  <link rel="stylesheet" href="strapdown/themes/Light Mode.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  
+
+  <xmp theme="superhero" style="display:none;" toc="true">
+
+
+In this exercise, you will go through some of the core concepts of the Kubernetes technology. 
+#Outcomes
+
+You should be able to:
+ - Organize your projects in namespaces 
+ - Create replicasets
+ - Get infos about your k8s different objects.
+ - Clean up
+
+#Steps
+
+
+4. Create a workspace for Kubernetes
+   
+   Open a terminal on workstation (Applications > Utilities > Terminal) and run the following commands:    
+
+   Switch to root user:
+   ```
+   vagrant ssh master // if you are not connected to the master node
+   sudo -i
+   ```
+   ```
+   mkdir ~/concepts-lab
+   cd ~/concepts-lab
+   ```
+
+5. Create a Kubernetes Namespace
+   
+   Namespaces are used to organize our work and keep track of every kubernetes object we create.
+   That's why we will create a namespace for this lab
+   ```
+   kubectl create namespace concepts-lab
+   ```
+   Output:
+   ```
+   namespace/concepts-lab created
+   ```
+   Now to check that we successfully created it, run this command
+   ```
+   kubectl get namespaces
+   ```
+
+   ```
+   NAME              STATUS   AGE
+   concepts-lab      Active   38s
+   default           Active   13d
+   kube-node-lease   Active   13d
+   kube-public       Active   13d
+   kube-system       Active   13d
+   ```
+   In order to check all the kubernetes object available in our cluster, you can run:
+   ```
+   kubectl get all --all-namespaces
+   ```
+   ```
+   NAMESPACE     NAME                                     READY   STATUS    RESTARTS   AGE
+   kube-system   pod/coredns-f9fd979d6-4fndq              1/1     Running   9          13d
+   kube-system   pod/coredns-f9fd979d6-lctqx              1/1     Running   9          13d
+   kube-system   pod/etcd-k8s-master                      1/1     Running   9          13d
+   kube-system   pod/kube-apiserver-k8s-master            1/1     Running   11         13d
+   kube-system   pod/kube-controller-manager-k8s-master   1/1     Running   107        13d
+   kube-system   pod/kube-proxy-m2xvf                     1/1     Running   9          13d
+   kube-system   pod/kube-proxy-rnrfb                     1/1     Running   8          13d
+   kube-system   pod/kube-scheduler-k8s-master            1/1     Running   100        13d
+   kube-system   pod/weave-net-hbpkt                      2/2     Running   25         13d
+   kube-system   pod/weave-net-htmxv                      2/2     Running   22         13d
+   
+   NAMESPACE     NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)                  AGE
+   default       service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP                  59s
+   kube-system   service/kube-dns     ClusterIP   10.96.0.10   <none>        53/UDP,53/TCP,9153/TCP   13d
+   
+   NAMESPACE     NAME                        DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR            AGE
+   kube-system   daemonset.apps/kube-proxy   2         2         2       2            2           kube/os=linux            13d
+   kube-system   daemonset.apps/weave-net    2         2         2       2            2           <none>                   13d
+   
+   NAMESPACE     NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
+   kube-system   deployment.apps/coredns   2/2     2            2           13d
+   
+   NAMESPACE     NAME                                DESIRED   CURRENT   READY   AGE
+   kube-system   replicaset.apps/coredns-f9fd979d6   2         2         2       13d
+   ```
+
+8. Create a Kubernetes ReplicaSet
+
+   A ReplicaSet's purpose is to maintain a stable set of replica Pods running at any given time. 
+   
+   As such, it is often used to guarantee the availability of a specified number of identical Pods. 
+   <img src="images/mod8/two.png" width="600" height="600" style="margin: 20px auto;" />
+
+   Create an empty file:
+   ```
+   vi replicaset.yaml
+   ```
+   Press "i" to enter vi insert mode, then paste this:
+   ```
+   apiVersion: apps/v1
+   kind: ReplicaSet
+   metadata:
+     name: hello-world-replicaset
+     namespace: concepts-lab
+     labels:
+       app: hello-world 
+   spec:
+     replicas: 2
+     selector:
+       matchLabels:
+         app: hello-world 
+     template:
+       metadata:
+         labels:
+           app: hello-world
+       spec:
+         containers:
+         - name: hello-world-container 
+           image: dockertrainings2020/hello_world
+           ports:
+           - containerPort: 8080
+   ```
+   ```
+   kubectl apply -f replicaset.yaml
+   ```
+   ```
+   replicaset.apps/hello-world-replicaset created
+   ```
+   Now, run this command to check the results:
+   ```
+   kubectl get replicaset -n concepts-lab
+   ```
+   ```
+   NAME                     DESIRED   CURRENT   READY   AGE
+   hello-world-replicaset   2         2         1       15s
+   ```
+   We can check the pods created by this replicaset as well:
+   ```
+   kubectl get pods -n concepts-lab
+   ```
+   ```
+   NAME                           READY   STATUS    RESTARTS   AGE
+   hello-world-replicaset-5274c   1/1     Running   0          2m32s
+   hello-world-replicaset-9h9c2   1/1     Running   0          2m32s
+   ```
+   Or, we could use a single command to replace the previous two commands:
+   ```
+   kubectl get po,rs -n concepts-lab
+   or
+   kubectl get all -n concepts-lab
+   ```
+   ```
+   NAME                               READY   STATUS    RESTARTS   AGE
+   pod/hello-world-replicaset-5274c   1/1     Running   0          83s
+   pod/hello-world-replicaset-9h9c2   1/1     Running   0          83s
+   
+   NAME                                     DESIRED   CURRENT   READY   AGE
+   replicaset.apps/hello-world-replicaset   2         2         2       83s
+   ```
+   Let's try deleting one pod from this replicaset, make sure to change the name of this pod with the one you got in your list:
+   ```
+   kubectl delete pod hello-world-replicaset-5274c -n concepts-lab
+   ```
+   ```
+   pod "hello-world-replicaset-5274c" deleted
+   ```
+   Now, check your pods again
+   
+   ```
+   kubectl get pods -n concepts-lab
+   ```
+
+   ```
+   NAME                           READY   STATUS    RESTARTS   AGE
+   hello-world-replicaset-plswv   1/1     Running   0          11s
+   hello-world-replicaset-9h9c2   1/1     Running   0          10m
+   ```
+   As you can see, there is a new pod that was automatically created instead of the deleted one.
+
+   Let's edit our replicaset yaml file, and change the number of replicas to 4.
+  
+   ```
+   vi replicaset.yaml 
+   ```
+   Change replicas number to 4 instead of 2. 
+   ```
+   apiVersion: apps/v1
+   kind: ReplicaSet
+   metadata:
+     name: hello-world-replicaset
+     namespace: concepts-lab
+     labels:
+       app: hello-world 
+   spec:
+     replicas: 4
+     selector:
+       matchLabels:
+         app: hello-world 
+     template:
+       metadata:
+         labels:
+           app: hello-world
+       spec:
+         containers:
+         - name: hello-world-container 
+           image: dockertrainings2020/hello_world
+           ports:
+           - containerPort: 8080
+   ```
+   Then save and run this command:
+   ```
+   kubectl apply -f replicaset.yaml
+   ```
+   ```
+   replicaset.apps/hello-world-replicaset configured
+   ```
+   Now, if you check your Pods you'll find that we have 4 pods instead of 2 of this replicaset.
+   ```
+   kubectl get pods -n concepts-lab
+   ``` 
+   ```
+   NAME                           READY   STATUS    RESTARTS   AGE
+   hello-world-replicaset-9khx2   1/1     Running   0          93s
+   hello-world-replicaset-cmnzl   1/1     Running   0          93s
+   hello-world-replicaset-plswv   1/1     Running   0           5m
+   hello-world-replicaset-9h9c2   1/1     Running   0          15m
+   ```
+   Now, let's get pods IPs by adding -o wide option:
+   ```
+   kubectl get pods -n concepts-lab -o wide
+   ``` 
+   Test Pods:
+   ```
+   curl http://POD-IP:8080
+   ```
+   Run the describe sub command against replicaset and one of the pods to get more infos:
+   ```
+   kubectl describe pod <pod-name> -n concepts-lab
+   kubectl describe rs  <rs-name>  -n concepts-lab  
+   ``` 
+   Now, let's clean up all what we've created so far.
+   ```
+   kubectl delete replicaset hello-world-replicaset -n concepts-lab
+   ```
+   ```
+   replicaset.apps "hello-world-replicaset" deleted
+   ```
+   Now, if you check the pods list, you'll find it empty, since deleting the replicaset will also delete all the pods in it.
+   ```
+   kubectl get pods -n concepts-lab
+   ```
+   ```
+   No resources found in concepts-lab namespace.
+   ```
+
+11. Clean up (Optionally)
+
+   Now, let's clean up all what we've created so far.
+   ```
+   kubectl delete namespace concepts-lab
+   ```   
+   ```
+   namespace "concepts-lab" deleted
+   ```
+   Run this command in order to check everything is back to its original state:
+   ````
+   kubectl get all
+   ```
+   You need to have this as output:
+   ```
+   NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+   service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   4h3m
+   ```
+  </xmp>
+  <!-- <script src="http://cdn.ztx.io/strapdown/strapdown.min.js"></script> -->
+  <script src="strapdown/strapdown.min.js"></script>
+</html>
+<!--
+Local Variables:
+mode: markdown
+End:
+->

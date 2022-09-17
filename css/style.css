@@ -1,0 +1,16 @@
+.important-note{
+    font-weight: bold;
+    font-size: 18px;
+    color: #BB6029;
+}
+.important-header{
+font-weight: bold;
+color: #DF691A;
+text-decoration: underline;
+font-size: 18px; 
+
+}
+.question-num{
+    font-size: 20px;
+    font-weight: 600;
+}
