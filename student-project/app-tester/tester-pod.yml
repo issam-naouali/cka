@@ -1,0 +1,15 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:   
+  name: tester-pod
+spec: 
+  containers: 
+  - name: tester-pod  
+    image: radial/busyboxplus:curl 
+    args: 
+    - curl 
+    - -X 
+    - POST
+    - 10.244.0.8:4000/get-students 
+...
