@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+   
+  <title>Guided Exercise: Services</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="strapdown/themes/Dark Mode.min.css">
+  <link rel="stylesheet" href="strapdown/themes/Light Mode.min.css">
+  
+  <xmp theme="superhero" style="display:none;" toc="true">
+
+
+In this exercise, you will learn how to work with different service types exisiting on kubernetes.
+
+#Outcomes
+
+You should be able to:
+- Use Nodeports
+- Use ClusterIPs
+- Clean up.
+
+
+#Steps
+
+1. Create a workspace for Kubernetes
+   
+   Open a terminal on workstation (Applications > Utilities > Terminal) and run the following commands:    
+  
+   Switch to root user:
+   ```
+   vagrant ssh master // if you are not connected to the master node
+   sudo -i
+   ```
+   ```
+   mkdir ~/services-lab
+   cd ~/services-lab
+   ```
+
+2. Create a namespace for our lab
+
+   Namespaces are used to organize our work and keep track of every kubernetes object we create.
+   That's why we will create a namespace for this lab
+   ```
+   kubectl create namespace services-lab
+   ```
+   Now to check that we successfully created it, run this command
+   ```
+   kubectl get namespaces
+   ```
+   Output should be like this:
+   ```
+   NAME              STATUS   AGE
+   default           Active   3d9h
+   kube-node-lease   Active   3d9h
+   kube-public       Active   3d9h
+   kube-system       Active   3d9h
+   services-lab      Active   6s
+   ```
+
+2. Configuring a Cluster IP
+
+  Within the same cluster, an application that have frontend and backend pods, must have the ability to communicate inter pods.
+  
+  In this case, we can use a cluster IP which is a service that has a virtual IP so we can use it for communicating between the frontend pods and the backend pods.
+  
+  Create an empty file:
+  ```
+  vi ci-deploy.yaml
+  ```
+  Press "i" to enter vi insert mode, then paste this:
+  ```
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: my-ci-deployment
+    namespace: services-lab
+  spec:
+    replicas: 3
+    selector:
+      matchLabels:
+        app: frontend-app
+    template:
+      metadata:
+        labels:
+          app: frontend-app
+      spec:
+        containers:
+        - name: frontend-container
+          image: dockertrainings2020/hello_world
+          ports:
+          - containerPort: 80
+  ```
+  Now, we just need to create it using
+  ```
+  kubectl apply -f ci-deploy.yaml
+  ```
+  ```
+  deployment.apps/my-ci-deployment created
+  ```
+  In order to check our created deployment, run:
+  ```
+  kubectl get deployments -n services-lab
+  ```
+  Output should be:
+  ```
+  NAME                 READY   UP-TO-DATE   AVAILABLE   AGE
+  my-ci-deployment     3/3     3            3           1m
+  ```
+  Then, create another file named "ci-service.yaml" for the service itself:
+  ```
+  vi ci-service.yaml
+  ```
+  ```
+  apiVersion: v1 
+  kind: Service
+  metadata:
+    name: myfrontend-service
+    namespace: services-lab
+  spec: 
+    type: ClusterIP
+    ports:
+      - targetPort: 80
+        port: 8080
+    selector:
+      app: frontend-app
+  ```
+  Then,
+  ```
+  kubectl apply -f ci-service.yaml
+  ```
+  ```
+  service/myfrontend-service created
+  ```
+  Now to check that we successfully created it, run this command
+  ```
+  kubectl get services -n services-lab
+  ```
+  Output should be:
+  ```
+  NAME                 TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)          AGE
+  myfrontend-service   ClusterIP   10.99.182.33   <none>        8080/TCP         5m30s
+  ```
+
+  The service frontend is now accessible to other pods and on the worker nodes using the ip found in the previous command output.
+
+  From any worker node of your cluster:
+
+  Then run this command: 
+  ```
+  ssh node1 curl 10.99.182.33:8080
+  ssh node2 curl 10.99.182.33:8080
+  ```
+  Output should be:
+  ```
+  
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title></title>
+      
+  </head>
+  <style>
+      @import url('https://fonts.googleapis.com/css2?family=Bad+Script&display=swap');
+  
+      body{
+          margin: 0px;
+          padding: 0px;
+          font-family: 'Bad Script', cursive;
+          background-color: #FCBA02;
+      }
+      .mid{
+          height: 200px;
+          width: 100%;
+          margin-top: 35vh;
+          margin-left: 30vw;
+          color: white;
+          font-size: 120px;
+      }
+  </style>
+  <body>
+     <div > Hello World!</div>
+  </body>
+  
+  ```
+  The service frontend is now accessible to other pods and on the worker nodes using the ip found in the previous command output.
+  Then run this command: 
+
+  ```
+  kubectl  run tester-pod-1 -n services-lab --image=curlimages/curl --command -- curl <CLUSTER-IP>:8080 ; sleep 10 ; kubectl logs -f tester-pod-1 -n services-lab
+  ```
+  Output should be:
+  ```
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title></title>
+        
+    </head>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bad+Script&display=swap');
+    
+        body{
+            margin: 0px;
+            padding: 0px;
+            font-family: 'Bad Script', cursive;
+            background-color: #FCBA02;
+        }
+        .mid{
+            height: 200px;
+            width: 100%;
+            margin-top: 35vh;
+            margin-left: 30vw;
+            color: white;
+            font-size: 120px;
+        }
+    </style>
+    <body>
+      <div > Hello World!</div>
+    </body>
+  
+  ```
+  Try with a different Pod to test the loadbalancing feature: `tester-pod-2`
+
+  ```
+  kubectl  run tester-pod-2 -n services-lab --image=curlimages/curl --command -- curl <CLUSTER-IP>:8080 ; sleep 10 ; kubectl logs -f tester-pod-2 -n services-lab
+  ```
+  Describe the service 
+  
+  ```
+  kubectl describe  svc myfrontend-service  -n services-lab
+  ```
+  Display the endpoints (The backend pods) of your service:
+ 
+  ```
+  kubectl get ep  -n services-lab
+  ```
+
+3. Configuring Nodeport
+
+   Nodeports are services that listen on a node port and forward the requests on that port to a specific pod.
+   Before creating one, we need to have a deployment that we will forward the traffic to. In our case we will be using the same `my-ci-deployment` deployment.
+   
+   Let's edit the previous service and change it into a NodePort service:
+   ```
+   vi ci-service.yaml
+   ```
+   Match the changes in the file to this one:
+   ```
+   apiVersion: v1 
+   kind: Service
+   metadata:
+     name: myfrontend-service
+     namespace: services-lab
+   spec: 
+     type: NodePort
+     ports:
+       - targetPort: 80
+         port: 8080
+         nodePort: 30080
+     selector:
+         app: frontend-app
+   ```
+   Then,
+   ```
+   kubectl apply -f ci-service.yaml
+   ```
+   Now to check that we successfully created it, run this command
+   ```
+   kubectl get services -n services-lab
+   ```
+   Output should be:
+   ```
+   NAME            TYPE       CLUSTER-IP    EXTERNAL-IP   PORT(S)          AGE
+   myapp-service   NodePort   10.98.41.42   <none>        8080:30080/TCP   29m
+   ```
+
+3. Check the whole config
+
+  Now, in order to check that our configuration is valid, you can run:
+  ```
+  kubectl get pods -o wide -n services-lab
+  ```
+  Output
+  ```
+  NAME                     READY   STATUS    RESTARTS   AGE     IP            NODE       NOMINATED NODE   READINESS GATES
+  my-ci-75b956fb-lms99     1/1     Running   0          2d12h   172.17.0.8    wrk-node1      <none>           <none>
+  my-ci-75b95dfb-mw892     1/1     Running   0          2d12h   172.17.0.10   wrk-node1      <none>           <none>
+  my-ci-75b6cdfb-txsp5     1/1     Running   0          2d13h   172.17.0.6    wrk-node1      <none>           <none>
+  ```
+
+  Now, get worker node1 ip address:
+  ```
+  kubectl get nodes -o wide 
+  ```
+  
+  Then all you need to do, is to access your wokrstation browser and change the ip address with the ip address that you just found on your worker node:
+  ```
+  curl http://node1:30080
+  curl http://node2:30080
+  curl http://master:30080
+  ```
+  Copy that link into your browser:
+  <img src="images/mod8/10.png" width="1200" height="1200" />
+
+  ```
+  kubectl get nodes -o wide |  awk {'print $1" " $2 " " $6'} | column -t
+  ```
+  ```
+  NAME    STATUS  INTERNAL-IP
+  node1   Ready   192.168.22.253
+  node2   Ready   192.168.37.250
+  ```
+
+  ``` 
+  kubectl  run  tester-pod-node1 -n services-lab --image=curlimages/curl --command -- curl <INTERNAL-IP-node1>:30080 ; sleep 10 ; kubectl logs -f tester-pod-node1 -n services-lab
+  kubectl  run  tester-pod-node2 -n services-lab --image=curlimages/curl --command -- curl <INTERNAL-IP-node2>:30080 ; sleep 10 ; kubectl logs -f tester-pod-node2 -n services-lab
+  ```
+  
+5. Clean up
+
+  In order to keep our cluster clean and do not waste ressources, we'll delete the entire namespace that we created earlier.
+  We can do this by using this command.
+
+   ```
+   kubectl delete namespace services-lab
+   ```
+   Then we will delete the working space:
+   ```
+   sudo rm -rf ~/services-lab
+   ```
+  </xmp>
+  <!-- <script src="http://cdn.ztx.io/strapdown/strapdown.min.js"></script> -->
+  <script src="strapdown/strapdown.min.js"></script>
+</html>
+<!--
+Local Variables:
+mode: markdown
+End:
+->

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html>
+   
+  <title>Guided Exercise: Network Policies</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="strapdown/themes/Dark Mode.min.css">
+  <link rel="stylesheet" href="strapdown/themes/Light Mode.min.css">
+  
+
+  <xmp theme="superhero" style="display:none;" toc="true">
+
+
+In this exercice, we will discuss NetworkPolicies and demonstrate how to create a simple policy to restrict access to a pod.
+
+#Outcomes
+
+You should be able to:
+ - Create NetworkPolicies
+ - Get information about NetworkPolicies
+
+ <b>Estimated time: 20 mins </b>
+#Steps
+
+From a security perspective, it is often a good idea to place network-level restrictions on any communication between different parts of your infrastructure. 
+
+NetworkPolicies allow you to restrict and control the network traffic going to and from your pods. 
+
+
+1. Create a workspace for Kubernetes
+   
+   Open a terminal on workstation (Applications > Utilities > Terminal) and run the following commands:    
+   ```
+   vagrant ssh master // if you are not connected to the master node
+   sudo -i
+   ```
+   ```
+   mkdir ~/network-policy-lab
+   cd ~/network-policy-lab
+   ```
+
+2. Create a namespace for our lab
+
+   Namespaces are used to organize our work and keep track of every kubernetes object we create.
+   That's why we will create a namespace for this lab
+   ```
+   kubectl create namespace network-policy-lab 
+   ```
+   Now to check that we successfully created it, run this command
+   ```
+   kubectl get namespaces
+   ```
+   Output should be like this:
+   ```
+   NAME                STATUS   AGE
+   default             Active   3d9h
+   kube-node-lease     Active   3d9h
+   kube-public         Active   3d9h
+   kube-system         Active   3d9h
+   network-policy-lab  Active   6s
+   ```
+
+2. Create a sample nginx pod:
+   ```
+   vi my-sample-pod.yml
+   ```
+   ```
+   apiVersion: v1
+   kind: Pod
+   metadata:
+     name: network-policy-secure-pod
+     namespace: network-policy-lab
+     labels:
+       app: secure-app
+   spec:
+     containers:
+     - name: nginx
+       image: nginx
+       ports:
+       - containerPort: 80   
+   ```
+   ```
+   kubectl apply -f my-sample-pod.yml
+   ```
+3. Create another pod to try connecting to the previous one:
+   
+   ```
+   vi my-test-pod.yml
+   ```
+   ```
+   apiVersion: v1
+   kind: Pod
+   metadata:
+     name: network-policy-client-pod
+     namespace: network-policy-lab
+   spec:
+     containers:
+     - name: busybox
+       image: radial/busyboxplus:curl
+       command: ["/bin/sh", "-c", "while true; do sleep 3600; done"]
+   
+   ```
+   ```
+   kubectl apply -f my-test-pod.yml
+   ```
+4. Use this command to get the cluster IP address of the Nginx pod:
+   ```
+   kubectl get pod network-policy-secure-pod -n network-policy-lab -o wide
+   ```
+   Output should be:
+   ```
+   NAME                        READY   STATUS    RESTARTS   AGE   IP          NODE           NOMINATED NODE   READINESS GATES
+   network-policy-secure-pod   1/1     Running   0          4m    10.32.0.9   worker-node1   <none>           <none>
+   ```
+   Save the ip of the secure-pod, we will use it in the next sections. 
+   
+5. Use the secure pod's IP address to test network access from the client pod to the secure Nginx pod:
+   
+   ```
+   kubectl exec network-policy-client-pod -n network-policy-lab -- curl <10.32.0.9>
+   ```
+   Output should be:
+   ```
+   <!DOCTYPE html>
+   <html>
+   <head>
+   <title>Welcome to nginx!</title>
+   <style>
+       body {
+           width: 35em;
+           margin: 0 auto;
+           font-family: Tahoma, Verdana, Arial, sans-serif;
+       }
+   </style>
+   </head>
+   <body>
+   <h1>Welcome to nginx!</h1>
+   <p>If you see this page, the nginx web server is successfully installed and
+   working. Further configuration is required.</p>
+   
+   <p>For online documentation and support please refer to
+   <a href="http://nginx.org/">nginx.org</a>.<br/>
+   Commercial support is available at
+   <a href="http://nginx.com/">nginx.com</a>.</p>
+   
+   <p><em>Thank you for using nginx.</em></p>
+   </body>
+   </html>
+   ```
+6. Create a network policy that restricts all access to the secure pod, except to and from pods which bear the allow-access: "true" label:
+   ```
+   vi network-policy.yaml
+   ```
+   ```
+   apiVersion: networking.k8s.io/v1
+   kind: NetworkPolicy
+   metadata:
+     name: my-network-policy
+     namespace: network-policy-lab
+   spec:
+     podSelector:
+       matchLabels:
+         app: secure-app
+     policyTypes:
+     - Ingress
+     - Egress
+     ingress:
+     - from:
+       - podSelector:
+           matchLabels:
+             allow-access: "true"
+       ports:
+       - protocol: TCP
+         port: 80
+     egress:
+     - to:
+       - podSelector:
+           matchLabels:
+             allow-access: "true"
+       ports:
+       - protocol: TCP
+         port: 80   
+   ```
+   ```
+   kubectl apply -f network-policy.yaml
+   ```
+7. Get information about NetworkPolicies in the cluster:
+
+   ```
+   kubectl get networkpolicies -n network-policy-lab
+   ```
+   ```
+   NAME                POD-SELECTOR     AGE
+   my-network-policy   app=secure-app   2s
+   ```
+   ```
+   kubectl describe networkpolicy my-network-policy -n network-policy-lab
+   ```
+   Output should be
+   ```
+   Name:         my-network-policy
+   Namespace:    default
+   Created on:   2020-10-13 22:58:08 -0400 EDT
+   Labels:       <none>
+   Annotations:  <none>
+   Spec:
+     PodSelector:     app=secure-app
+     Allowing ingress traffic:
+       To Port: 80/TCP
+       From:
+         PodSelector: allow-access=true
+     Allowing egress traffic:
+       To Port: 8/TCP
+       To:
+         PodSelector: allow-access=true
+     Policy Types: Ingress, Egress
+   ```
+   Let's try to curl the same pod after having NetworkPolicies applied.
+   ```
+   kubectl exec network-policy-client-pod -n network-policy-lab -- curl <10.32.0.9>
+   ```
+   The command will stay on hold, trying to access the secure-pod, but nothings happens.
+   ```
+   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current 
+   0         0      0      0    0     0      0      0 --:--:--  0:00:23 --:--:--     
+   ```
+   Let's try to label our client-pod with "allow-access=true"
+   ```
+   vi my-test-pod.yml
+   ```
+   ```
+   apiVersion: v1
+   kind: Pod
+   metadata:
+     name: network-policy-client-pod
+     labels: 
+       allow-access: "true"
+     namespace: network-policy-lab
+   spec:
+     containers:
+     - name: busybox
+       image: radial/busyboxplus:curl
+       command: ["/bin/sh", "-c", "while true; do sleep 3600; done"]
+   ```
+   ```
+   kubectl apply -f my-test-pod.yml
+   ```
+   Now, if we try to curl again, we will have a response back from the secure app.
+   ```
+   kubectl exec network-policy-client-pod -n network-policy-lab -- curl <10.32.0.9>
+   ```
+   Output should be:
+   ```
+   <!DOCTYPE html>
+   <html>
+   <head>
+   <title>Welcome to nginx!</title>
+   <style>
+       body {
+           width: 35em;
+           margin: 0 auto;
+           font-family: Tahoma, Verdana, Arial, sans-serif;
+       }
+   </style>
+   </head>
+   <body>
+   <h1>Welcome to nginx!</h1>
+   <p>If you see this page, the nginx web server is successfully installed and
+   working. Further configuration is required.</p>
+   
+   <p>For online documentation and support please refer to
+   <a href="http://nginx.org/">nginx.org</a>.<br/>
+   Commercial support is available at
+   <a href="http://nginx.com/">nginx.com</a>.</p>
+   
+   <p><em>Thank you for using nginx.</em></p>
+   </body>
+   </html>
+   ```
+
+8. Clean Up
+
+   In order to keep our cluster clean and do not waste ressources, we'll delete the entire namespace that we created earlier.
+   
+   We can do this by using this command.
+   ```
+   kubectl delete namespace network-policy-lab
+   ```
+   Then we will delete the working space:
+   ```
+   sudo rm -rf ~/network-policy-lab
+   ```
+
+# Relevant Documentation
+  - https://kubernetes.io/docs/concepts/services-networking/network-policies/
+
+  </xmp>
+  <!-- <script src="http://cdn.ztx.io/strapdown/strapdown.min.js"></script> -->
+  <script src="strapdown/strapdown.min.js"></script>
+</html>
+<!--
+Local Variables:
+mode: markdown
+End:
+->

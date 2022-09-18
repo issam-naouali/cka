@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+   
+  <title>Guided Exercise: NFS Volumes</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="strapdown/themes/Dark Mode.min.css">
+  <link rel="stylesheet" href="strapdown/themes/Light Mode.min.css">
+  
+  
+  <xmp theme="superhero" style="display:none;" toc="true">
+
+
+In this exercise, you will start working with Kubernetes volumes.
+
+- The goal of this exercise is to understand how NFS provisioning work in Kubernetes. 
+- In the first part i will deploy the volume and claim manually.
+- We will use a simple Nginx application 
+
+#Outcomes
+
+You should be able to:
+- Create Volumes 
+- Create Persistent Volumes
+- Use PVCs
+
+#Steps
+
+1. Create a workspace for Kubernetes
+   
+   Open a terminal on workstation (Applications > Utilities > Terminal) and run the following commands: 
+
+   Switch to root user:
+   ```
+   vagrant ssh master // if you are not connected to the master node
+   sudo -i
+   ```
+   ```
+   mkdir ~/nfs-volumes-lab
+   cd ~/nfs-volumes-lab
+   ```
+
+2. Kubernetes volumes
+
+   First lets install NFS server on the `control` machine, and create a directory from where our NFS server will serve files:
+   ```
+   ssh control
+   sudo -i
+   apt-get install nfs-kernel-server nfs-common portmap
+   systemctl enable nfs-server --now 
+   mkdir  /mydata 
+   chmod -R 777 /mydata 
+   echo  Kubernetes training > /mydata/index.html
+   ```  
+   Exporting our directory
+   Note that this is insecure configuration (do no use it in production):
+
+   ```
+   vim /etc/exports
+   ```  
+   Add the following line:
+   ```
+   /mydata  *(rw,sync,no_subtree_check,no_root_squash,insecure) # Add this line to the file 
+   ```
+   Export nfs directory
+   ```
+   exportfs -rav
+   ```
+   output: 
+   ```
+   exporting *:/mydata
+   ```
+   Check if it's well exported
+   ```
+   showmount -e
+   ```
+   output: 
+   ``` 
+   /mydata  *
+   ```  
+   Login to the kubernetes master
+   
+   ```
+   exit // exit from sudo -i
+   exit // exit from control VM
+   ```  
+   Test the NFS server from the master node
+   ```
+   sudo -i
+   apt-get install  nfs-common 
+   showmount -e control 
+   mount -t nfs control:/mydata /mnt
+   mount | grep mydata
+   umount /mnt 
+   ```  
+   Install the `nfs-common` package on all worker nodes: `apt-get install nfs-common`
+   ``` 
+   ssh node1 sudo apt-get install nfs-common -y 
+   ssh node2 sudo apt-get install nfs-common -y 
+   ``` 
+   
+1. Now lets create an NFS persistence volume, `nfs-pv.yaml`:
+   - First, we start by creating our `nfs-pv.yaml` file. 
+   - Create an empty file on Master node:
+
+   ```
+   cd ~/nfs-volumes-lab
+   vi nfs-pv.yaml
+   ```
+   Press "i" to enter vi insert mode, then paste this:
+
+   ```    
+   apiVersion: v1
+   kind: PersistentVolume
+   metadata:
+     name: nfs-pv
+     labels:
+       name: mynfs # name can be anything
+   spec:
+     capacity:
+       storage: 200Mi
+     accessModes:
+       - ReadWriteMany
+     nfs:
+       server: control # ip addres of nfs server
+       path: "/mydata" # path to directory
+   ```     
+    
+    Deploying `nfs-pv.yaml`:
+    
+   ```    
+    kubectl apply -f nfs-pv.yaml    
+   ```   
+    List all PV:
+   ```  
+    kubectl get pv
+   ```    
+   ```  
+    nfs-pv   100Mi      RWX            Retain           Available
+   ```
+    
+1. Creating persistence volume claim file and deploying it. 
+   - The accessModes must be the same as the persistence volume that it needs to access:
+   - First, we start by creating our `nfs-pvc.yaml` file. Create an empty file:
+   
+   ```
+    cd ~/nfs-volumes-lab
+    vi nfs-pvc.yaml
+   ```
+    
+   Press "i" to enter vi insert mode, then paste this:
+   
+   ```
+   apiVersion: v1
+   kind: PersistentVolumeClaim
+   metadata:
+     name: nfs-pvc
+   spec:
+     accessModes:
+      - ReadWriteMany #  must be the same as PersistentVolume
+     resources:
+       requests:
+         storage: 50Mi #  must be less or equal the PersistentVolume size
+   ```
+    
+    Deploying `nfs-pv.yaml`:
+        
+   ```
+    kubectl apply -f nfs-pvc.yaml
+   ```
+    List all PVC:
+   ```
+    kubectl get pvc
+   ```       
+   ```
+    nfs-pvc   Bound    nfs-pv   100Mi      RWX
+   ```
+    
+1. Lets create a pod to access this pvc using a simple Nginx deployment. The most important line is the claimName which must be the same as the persistence volume claim:
+   - First, we start by creating our `deployment.yml` file . Create an empty file:
+   
+   ```
+   vi deployment.yaml
+   ```
+   Press "i" to enter vi insert mode, then paste this:
+   
+   ```
+   apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     labels:
+       app: nginx
+     name: nfs-nginx
+   spec:
+     replicas: 1
+     selector:
+       matchLabels:
+         app: nginx
+     template:
+       metadata:
+         labels:
+           app: nginx
+       spec:
+         volumes:
+         - name: nfs-test
+           persistentVolumeClaim:
+             claimName: nfs-pvc # same name of pvc that was created
+         containers:
+         - image: nginx
+           name: nginx
+           volumeMounts:
+           - name: nfs-test # name of volume should match claimName volume
+             mountPath: /usr/share/nginx/html # mount inside of contianer    
+   ```
+    Deploying Nginx:
+   ```    
+    kubectl apply -f deployment.yaml 
+   ```    
+    List resources:
+   ```     
+    kubectl get pods
+   ```    
+   ```     
+    nfs-nginx-6cb55d48f7-q2bvd   1/1     Running
+   ```
+    
+5. Testing
+   ``` 
+   kubectl exec -it nfs-nginx-6cb55d48f7-q2bvd curl localhost
+   ``` 
+   - Updating the `index.html` from the Nginx pod:   
+   
+   ```    
+     
+     kubectl exec -it nfs-nginx-6cb55d48f7-q2bvd bash
+     echo  it works > /usr/share/nginx/html/index.html    
+     exit
+     kubectl exec -it nfs-nginx-6cb55d48f7-q2bvd curl localhost
+   ```       
+    Verifying that the control machine has now the same file content and verifying that Nginx can read the file:    
+    
+   ``` 
+    ssh control cat /mydata/index.html
+   ``` 
+
+#Unguided Questions:
+   - Create a NodePort service for the nginx deployment
+   - Change the index.html file content to "Hello World!" in the NFS server 
+   - Check the nginx pod web content using the nodePort Service
+   - Scale out your nginx deployment to 5
+   - Check the nginx pod web content agin from the service
+  
+#Clean up
+
+  In order to keep our cluster clean and do not waste ressources, we'll delete every k8s object created in this lab.
+  We can do this by using this command.
+
+   ```
+   kubectl delete -f deployment.yaml
+   kubectl delete -f nfs-pvc.yaml
+   kubectl delete -f nfs-pv.yaml
+   ```
+
+  </xmp>
+  <!-- <script src="http://cdn.ztx.io/strapdown/strapdown.min.js"></script> -->
+  <script src="strapdown/strapdown.min.js"></script>
+</html>
+<!--
+Local Variables:
+mode: markdown
+End:
+->

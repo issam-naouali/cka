@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+   
+  <title>Guided Exercise: Pods Networking</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="strapdown/themes/Dark Mode.min.css">
+  <link rel="stylesheet" href="strapdown/themes/Light Mode.min.css">
+  
+
+<xmp theme="superhero" style="display:none;" toc="true">
+In this exercice, you will learn some Networking basics in kubernetes.
+
+#Outcomes
+
+You should be able to:
+- Create multi-container pods
+- Implement intra pod communication
+- Implement inter pod communication
+- Clean up.
+
+
+#Steps
+
+1. Create a workspace for Kubernetes
+   
+   Open a terminal on workstation (Applications > Utilities > Terminal) and run the following commands:    
+
+   Switch to root user:
+   ```
+   sudo -i
+   ```
+   ```
+   mkdir ~/networking-lab
+   cd ~/networking-lab
+   ```
+
+2. Create a namespace for our lab
+
+   Namespaces are used to organize our work and keep track of every kubernetes object we create.
+   That's why we will create a namespace for this lab
+   ```
+   kubectl create namespace networking-lab
+   ```
+   Now to check that we successfully created it, run this command
+   ```
+   kubectl get namespaces
+   ```
+   Output should be like this:
+   ```
+   NAME              STATUS   AGE
+   default           Active   3d9h
+   kube-node-lease   Active   3d9h
+   kube-public       Active   3d9h
+   kube-system       Active   3d9h
+   networking-lab    Active   6s
+   ```
+
+2. Configure a deployment of 2 pods
+
+  In order to test the different aspects of networking, we'll create this deployment:
+
+  Create an empty file:
+  ```
+  vi networking.yaml
+  ```
+  Press "i" to enter vi insert mode, then paste this:
+  ```
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: networking-deployment
+    namespace: networking-lab
+  spec:
+    replicas: 2
+    selector:
+      matchLabels:
+        app: networks-app
+    template:
+      metadata:
+        labels:
+          app: networks-app
+      spec:
+        containers:
+        - name: nginx
+          image: nginx:1.15.8
+          ports:
+          - containerPort: 80
+        - name: busybox
+          image: radial/busyboxplus:curl
+          command: ['sh', '-c', 'while true; do sleep 30; done;']
+  ```
+  As you can see, there are two containers in the pod specification. This is called a multi-container pod.
+
+  Now, we just need to create it using:
+  ```
+  kubectl apply -f networking.yaml
+  ```
+  ```
+  deployment.apps/networking-deployment created
+  ```
+  In order to check our created pods, run:
+  ```
+  kubectl get pods -n networking-lab -o wide
+  ```
+  Output should be:
+  ```
+  NAME                                     READY   STATUS    RESTARTS   AGE     IP          NODE            NOMINATED NODE   READINESS GATES
+  networking-deployment-5b97ffdf78-n667t   2/2     Running   0          2m23s   10.32.0.3   node1              <none>           <none>
+  networking-deployment-5b97ffdf78-qb9h7   2/2     Running   0          2m23s   10.44.0.2   node2              <none>           <none>
+  ```
+  We can get more information about each pod using this command:
+  ```
+  kubectl describe pod networking-deployment-87694d8cc-h8wtc -n networking-lab
+  ```
+  ```
+  Name:         networking-deployment-87694d8cc-h8wtc
+  Namespace:    networking-lab
+  Priority:     0
+  Node:         worker-node-2/192.168.1.30
+  Start Time:   Sat, 17 Oct 2020 22:34:05 -0400
+  Labels:       app=networks-app
+                pod-template-hash=87694d8cc
+  Annotations:  <none>
+  Status:       Running
+  IP:           10.44.0.5
+  IPs:
+    IP:           10.44.0.5
+  Controlled By:  ReplicaSet/networking-deployment-87694d8cc
+  Containers:
+    nginx:
+      Container ID:   docker://cd33059290b7962ff4f801b8a58fd1074a8b2f0eed87ba03a341bf9996c7e421
+      Image:          nginx:1.15.8
+      Image ID:       docker-pullable://docker.io/nginx@sha256:dd2d0ac3fff2f007d99e033b64854be0941e19a2ad51f174d9240dda20d9f534
+      Port:           80/TCP
+      Host Port:      0/TCP
+      State:          Running
+        Started:      Sat, 17 Oct 2020 22:34:06 -0400
+      Ready:          True
+      Restart Count:  0
+      Environment:    <none>
+      Mounts:
+        /var/run/secrets/kubernetes.io/serviceaccount from default-token-nfjn4 (ro)
+    alpine:
+      Container ID:  docker://2ec67bd094cd333d186af51807a8d32b1b1a4f6c310787584d34773c9b85f84e
+      Image:         alpine:3.12
+      Image ID:      docker-pullable://docker.io/alpine@sha256:185518070891758909c9f839cf4ca393ee977ac378609f700f60a771a2dfe321
+      Port:          <none>
+      Host Port:     <none>
+      Command:
+        sh
+        -c
+        while true; do sleep 30; done;
+      State:          Running
+        Started:      Sat, 17 Oct 2020 22:34:14 -0400
+      Ready:          True
+      Restart Count:  0
+      Environment:    <none>
+      Mounts:
+        /var/run/secrets/kubernetes.io/serviceaccount from default-token-nfjn4 (ro)
+  Conditions:
+    Type              Status
+    Initialized       True 
+    Ready             True 
+    ContainersReady   True 
+    PodScheduled      True 
+  Volumes:
+    default-token-nfjn4:
+      Type:        Secret (a volume populated by a Secret)
+      SecretName:  default-token-nfjn4
+      Optional:    false
+  QoS Class:       BestEffort
+  Node-Selectors:  <none>
+  Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                   node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+  Events:
+    Type    Reason     Age        From               Message
+    ----    ------     ----       ----               -------
+    Normal  Scheduled  30s        default-scheduler  Successfully assigned networking-lab/networking-deployment-87694d8cc-h8wtc to worker-node-2
+    Normal  Pulled     <invalid>  kubelet            Container image "nginx:1.15.8" already present on machine
+    Normal  Created    <invalid>  kubelet            Created container nginx
+    Normal  Started    <invalid>  kubelet            Started container nginx
+    Normal  Pulling    <invalid>  kubelet            Pulling image "alpine:3.12"
+    Normal  Pulled     <invalid>  kubelet            Successfully pulled image "alpine:3.12" in 8.083031595s
+    Normal  Created    <invalid>  kubelet            Created container alpine
+    Normal  Started    <invalid>  kubelet            Started container alpine
+  ```
+
+3. Intra pod communication
+
+  In this section, we will curl nginx contaner from the busybox container on the same pod.
+  
+  First, get the name of the pod:
+
+  ```
+  kubectl get pods -n networking-lab -o wide
+  ```
+  Output should be:
+  ```
+  NAME                                     READY   STATUS    RESTARTS   AGE     IP          NODE            NOMINATED NODE   
+  networking-deployment-5b97ffdf78-n667t   2/2     Running   0          2m23s   10.32.0.3   node1             <none>           
+  networking-deployment-5b97ffdf78-qb9h7   2/2     Running   0          2m23s   10.44.0.2   node2             <none>          
+  ```
+  Then, choose one pod from your list and put in this command instead of our pod name:
+  ```
+  kubectl exec networking-deployment-5b97ffdf78-n667t -n networking-lab -c busybox -- curl localhost:80
+  ```
+  -c: specify the container on that pod
+  
+  curl localhost:80 : Since our containers are running on the same pod, they can access each other via the localhost ip address.
+
+  Output should be:
+  
+  ```
+  <!DOCTYPE html>
+  <html>
+  <head>
+  <title>Welcome to nginx!</title>
+  <style>
+      body {
+          width: 35em;
+          margin: 0 auto;
+          font-family: Tahoma, Verdana, Arial, sans-serif;
+      }
+  </style>
+  </head>
+  <body>
+  <h1>Welcome to nginx!</h1>
+  <p>If you see this page, the nginx web server is successfully installed and
+  working. Further configuration is required.</p>
+  
+  <p>For online documentation and support please refer to
+  <a href="http://nginx.org/">nginx.org</a>.<br/>
+  Commercial support is available at
+  <a href="http://nginx.com/">nginx.com</a>.</p>
+  
+  <p><em>Thank you for using nginx.</em></p>
+  </body>
+  </html>   
+  ```
+4. Inter pod communication
+
+  In this section, we will curl nginx container from the busybox container on the other pod.
+  
+  First, get the name of the pod:
+
+  ```
+  kubectl get pods -n networking-lab -o wide
+  ```
+  Output should be:
+  ```
+  NAME                                     READY   STATUS    RESTARTS   AGE     IP          NODE            NOMINATED NODE   
+  networking-deployment-5b97ffdf78-n667t   2/2     Running   0          2m23s   10.32.0.3   node1              <none>           
+  networking-deployment-5b97ffdf78-qb9h7   2/2     Running   0          2m23s   10.44.0.2   node2              <none>          
+  ```
+  Then, choose one pod from your list and put in this command instead of our pod name, and also change the ip address with the ip address of your other pod:
+  ```
+  kubectl exec networking-deployment-5b97ffdf78-n667t -n networking-lab -c busybox -- curl 10.44.0.2:80
+  ```
+  Output:
+    
+  ```
+  <!DOCTYPE html>
+  <html>
+  <head>
+  <title>Welcome to nginx!</title>
+  <style>
+      body {
+          width: 35em;
+          margin: 0 auto;
+          font-family: Tahoma, Verdana, Arial, sans-serif;
+      }
+  </style>
+  </head>
+  <body>
+  <h1>Welcome to nginx!</h1>
+  <p>If you see this page, the nginx web server is successfully installed and
+  working. Further configuration is required.</p>
+  
+  <p>For online documentation and support please refer to
+  <a href="http://nginx.org/">nginx.org</a>.<br/>
+  Commercial support is available at
+  <a href="http://nginx.com/">nginx.com</a>.</p>
+  
+  <p><em>Thank you for using nginx.</em></p>
+  </body>
+  </html>   
+  ```
+
+5. Clean up
+
+  In order to keep our cluster clean and do not waste ressources, we'll delete the entire namespace that we created earlier.
+  We can do this by using this command.
+
+   ```
+   kubectl delete namespace networking-lab
+   ```
+   Then we will delete the working space:
+   ```
+   sudo rm -rf ~/networking-lab
+   ```
+  </xmp>
+  <!-- <script src="http://cdn.ztx.io/strapdown/strapdown.min.js"></script> -->
+  <script src="strapdown/strapdown.min.js"></script>
+</html>
+<!--
+Local Variables:
+mode: markdown
+End:
+->
