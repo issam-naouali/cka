@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+  <title>Guided Exercise: Student Project - Volume</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="strapdown/themes/Dark Mode.min.css">
+  <link rel="stylesheet" href="strapdown/themes/Light Mode.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <xmp theme="superhero" style="display:none;" toc="true">
+
+
+In this guided exercise, you will learn how to create a simple microservice app using a NodeJS and a MySQL containers.
+#Outcomes
+
+You should be able to create a basic Microservice Architecture.
+#Steps
+1. Your instructor will provide you all the manifest files needed to build all microservices.
+2. Export a new nfs directory 
+   ```
+   cat /etc/exports
+   /mydata  *(rw,sync,no_subtree_check,no_root_squash,insecure)
+   /data-nfs  *(rw,no_root_squash)
+   ```
+3. Install Argo CD : https://argo-cd.readthedocs.io/en/stable/getting_started/
+   ```
+   kubectl create namespace argocd
+   kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+   ```
+4. Access The Argo CD API Server : https://argo-cd.readthedocs.io/en/stable/getting_started/
+   ```
+   kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "NodePort"}}'
+   ```
+5. Login Using The CLI
+   ```
+   kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
+   ```
+   - use admin and the password displayed in the previous step to authenticate to ArgoCD
+   - from your browser:  kind-ip:argocd-nodePort-service 
+
+6. Follow your instructor steps to create a new application
+
+4. Test your application from outside the cluster  
+
+  </xmp>
+  <script src="strapdown/strapdown.min.js"></script>
+</html>
+<!--
+Local Variables:
+mode: markdown
+End:
+->

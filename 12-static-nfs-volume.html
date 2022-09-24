@@ -42,10 +42,22 @@ You should be able to:
 2. Kubernetes volumes
 
    First lets install NFS server on the `control` machine, and create a directory from where our NFS server will serve files:
+   
+   - On Debian/Ubuntu Servers 
+
    ```
-   ssh control
    sudo -i
-   apt-get install nfs-kernel-server nfs-common portmap
+   apt-get install nfs-kernel-server nfs-common portmap -y
+   systemctl enable nfs-server --now 
+   mkdir  /mydata 
+   chmod -R 777 /mydata 
+   echo  Kubernetes training > /mydata/index.html
+   ```  
+   - On CentOS/Red Hat Servers
+
+   ```
+   sudo -i
+   yum install nfs-utils -y
    systemctl enable nfs-server --now 
    mkdir  /mydata 
    chmod -R 777 /mydata 
@@ -77,27 +89,43 @@ You should be able to:
    ``` 
    /mydata  *
    ```  
-   Login to the kubernetes master
+   Login to the kubernetes master and test the NFS configuration
    
    ```
-   exit // exit from sudo -i
-   exit // exit from control VM
+   ip a s // get host IP
+   docker container ps
+   docker container exec -it <kind-container-id> apt-get update -y
+   docker container exec -it <kind-container-id> apt-get install iputils-ping 
+   docker container exec -it <kind-container-id> ping <host-ip>
+   docker container exec -it <kind-container-id> echo <host-ip> nfs-server >> /etc/hosts
+   docker container exec -it <kind-container-id> showmount -e <host-ip>
+   docker container exec -it <kind-container-id> showmount -e nfs-server
    ```  
-   Test the NFS server from the master node
+1. Create a new storage class for nfs:
+ 
    ```
-   sudo -i
-   apt-get install  nfs-common 
-   showmount -e control 
-   mount -t nfs control:/mydata /mnt
-   mount | grep mydata
-   umount /mnt 
+   cd ~/nfs-volumes-lab
+   vi nfs-sc.yaml
+   ```
+   Press "i" to enter vi insert mode, then paste this:
+
    ```  
-   Install the `nfs-common` package on all worker nodes: `apt-get install nfs-common`
-   ``` 
-   ssh node1 sudo apt-get install nfs-common -y 
-   ssh node2 sudo apt-get install nfs-common -y 
-   ``` 
-   
+    apiVersion: v1
+    kind: List
+    metadata:
+      resourceVersion: ""
+    items:
+    - apiVersion: storage.k8s.io/v1
+      kind: StorageClass
+      metadata:
+        name: nfs
+      provisioner: rancher.io/local-path
+      reclaimPolicy: Delete
+      volumeBindingMode: Immediate
+   ```
+   ```    
+   kubectl apply -f nfs-sc.yaml    
+   ```  
 1. Now lets create an NFS persistence volume, `nfs-pv.yaml`:
    - First, we start by creating our `nfs-pv.yaml` file. 
    - Create an empty file on Master node:
@@ -116,12 +144,13 @@ You should be able to:
      labels:
        name: mynfs # name can be anything
    spec:
+     storageClassName: nfs
      capacity:
        storage: 200Mi
      accessModes:
        - ReadWriteMany
      nfs:
-       server: control # ip addres of nfs server
+       server: nfs-server # ip addres of nfs server
        path: "/mydata" # path to directory
    ```     
     
@@ -155,6 +184,7 @@ You should be able to:
    metadata:
      name: nfs-pvc
    spec:
+     storageClassName: nfs
      accessModes:
       - ReadWriteMany #  must be the same as PersistentVolume
      resources:
